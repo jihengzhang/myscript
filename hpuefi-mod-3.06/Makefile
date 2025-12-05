@@ -7,7 +7,7 @@ KDIR:=/lib/modules/$(KVERS)/kernel/drivers/hpuefi
 DESTDIR:=
 TARGET=hpuefi
 
-obj-m:=$(TARGET).o
+obj-m += hpuefi.o
 
 default:
 	./hpuefi-vm-flags.sh
