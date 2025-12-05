@@ -1,0 +1,1 @@
+savedcmd_/home/tester/Downloads/HP/hpuefi-mod-3.06/hpuefi.mod := printf '%s\n'   hpuefi.o | awk '!x[$$0]++ { print("/home/tester/Downloads/HP/hpuefi-mod-3.06/"$$0) }' > /home/tester/Downloads/HP/hpuefi-mod-3.06/hpuefi.mod

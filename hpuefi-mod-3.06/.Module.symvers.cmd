@@ -1,0 +1,1 @@
+savedcmd_/home/tester/Downloads/HP/hpuefi-mod-3.06/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/tester/Downloads/HP/hpuefi-mod-3.06/Module.symvers -T /home/tester/Downloads/HP/hpuefi-mod-3.06/modules.order -i Module.symvers -e 
