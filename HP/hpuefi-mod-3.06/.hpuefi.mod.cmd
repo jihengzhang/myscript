@@ -1,0 +1,1 @@
+savedcmd_/home/tester/myscript/hpuefi-mod-3.06/hpuefi.mod := printf '%s\n'   hpuefi.o | awk '!x[$$0]++ { print("/home/tester/myscript/hpuefi-mod-3.06/"$$0) }' > /home/tester/myscript/hpuefi-mod-3.06/hpuefi.mod

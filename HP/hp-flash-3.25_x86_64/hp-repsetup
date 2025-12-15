@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# HP Inc. Confidential 
+# © Copyright 2021 HP Development Company, L.P.
+
+# DISCLAIMER OF WARRANTY 
+# The following software: HP-FLASH is experimental and is provided as a 
+# courtesy, free of charge, "AS-IS" by Hewlett-Packard Company (“HP”).  
+# HP shall have no obligation to maintain or support this software. 
+# HP MAKES NO EXPRESS OR IMPLIED WARRANTY OF ANY KIND REGARDING THIS 
+# SOFTWARE INCLUDING ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+# PARTICULAR PURPOSE, TITLE OR NON-INFRINGEMENT. HP SHALL NOT BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES, 
+# WHETHER BASED ON CONTRACT, TORT OR ANY OTHER LEGAL THEORY, IN CONNECTION 
+# WITH OR ARISING OUT OF THE FURNISHING, PERFORMANCE OR USE OF 
+# THIS SOFTWARE.
+
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+MODPROBESUPPORT=`strings /sbin/modprobe | grep -c allow_unsupported`
+if [ ${MODPROBESUPPORT} -gt 0 ]; then
+   MODPROBEARGS="--allow-unsupported"
+else
+   MODPROBEARGS=" "
+fi
+
+/sbin/modprobe ${MODPROBEARGS} hpuefi
+RET=$?
+if [ ${RET} -ne 0 ]
+then
+  echo "ERROR: Could not load module hpuefi"
+  echo "       Make sure that the package hpuefi-mod is installed"
+  exit ${RET}
+fi
+
+# Create proper HPUEFI device file required for this kernel
+if [ ! -c /dev/hpuefi ]; then
+  if [ -x /lib/modules/`uname -r`/kernel/drivers/hpuefi/mkdevhpuefi ]; then
+    /lib/modules/`uname -r`/kernel/drivers/hpuefi/mkdevhpuefi
+  else
+    echo "ERROR: Unable to create /dev/hpuefi"
+    echo "       Make sure that the package hpuefi-mod is installed"
+    exit -1
+  fi 
+fi
+
+/opt/hp/hp-flash/bin/hp-repsetup "$@"
+
+/sbin/rmmod hpuefi
+
+

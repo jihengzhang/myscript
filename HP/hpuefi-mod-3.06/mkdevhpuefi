@@ -1,0 +1,25 @@
+#!/bin/bash
+# Script to create hpuefi character device
+
+module="hpuefi"
+device="hpuefi"
+mode="666"
+
+# Get the major number from /proc/devices
+major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
+
+if [ -z "$major" ]; then
+    echo "Error: Module $module is not loaded"
+    exit 1
+fi
+
+# Remove old device node if it exists
+rm -f /dev/${device}
+
+# Create new device node
+mknod /dev/${device} c $major 0
+
+# Set permissions
+chmod $mode /dev/${device}
+
+echo "Device /dev/${device} created with major number $major"
