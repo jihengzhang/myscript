@@ -10,6 +10,20 @@ SUDO=""
 
 APT_UPDATED=0
 log() { printf '\n[%s] %s\n' "$(date +'%H:%M:%S')" "$*"; }
+error() { printf '\n[%s] ERROR: %s\n' "$(date +'%H:%M:%S')" "$*" >&2; }
+
+check_internet() {
+	log "Checking internet connectivity..."
+	if ping -c 1 8.8.8.8 &>/dev/null || ping -c 1 1.1.1.1 &>/dev/null; then
+		log "Internet connection OK"
+		return 0
+	else
+		error "No internet connection detected"
+		error "Please check your network and try again"
+		return 1
+	fi
+}
+
 apt_update_once() {
 	[[ $APT_UPDATED -eq 1 ]] && return
 	log "Updating apt indices..."
@@ -148,6 +162,16 @@ install_edge() {
 	log "Microsoft Edge installed."
 }
 
+install_snipaste() {
+	log "Installing Snipaste (AppImage)..."
+	apt_install wget
+	local appimage="/usr/local/bin/snipaste.AppImage"
+	$SUDO wget -q -O "$appimage" https://download.snipaste.com/archives/Snipaste-2.11.2-x86_64.AppImage
+	$SUDO chmod +x "$appimage"
+	$SUDO ln -sf "$appimage" /usr/local/bin/snipaste
+	log "Snipaste installed. Launch with: snipaste"
+}
+
 install_git() {
 	log "Installing Git..."
 	apt_install git
@@ -188,8 +212,9 @@ Options:
   -remote  Enable XRDP remote desktop
   -nvidia  Install NVIDIA RTX Pro 6000 driver
   -ip      Setup static IP (10.190.63.138/22)
-  -edge    Install Microsoft Edge
-  -git     Install Git
+	-edge    Install Microsoft Edge
+	-snipaste Install Snipaste (AppImage)
+	-git     Install Git
   -conda   Install Miniconda with Python 3.11
   -all     Run all tasks
 
@@ -200,6 +225,9 @@ EOF
 
 # [[ $# -eq 0 ]] && { show_help; exit 0; }  terminal will exit
 [[ $# -eq 0 ]] && { show_help ; }
+
+# Check internet connectivity
+check_internet || exit 1
 
 declare -A run_flags=()
 run_all=false
@@ -215,6 +243,7 @@ for arg in "$@"; do
 		-nvidia) run_flags["nvidia"]=1; shift ;;
 		-ip) run_flags["ip"]=1; shift ;;
 		-edge) run_flags["edge"]=1; shift ;;
+		-snipaste) run_flags["snipaste"]=1; shift ;;
 		-git) run_flags["git"]=1; shift ;;
 		-conda) run_flags["conda"]=1; shift ;;
 		-all) run_all=true; shift ;;
@@ -224,12 +253,12 @@ for arg in "$@"; do
 done
 
 if $run_all; then
-	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["nvidia"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 )
+	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["nvidia"]=1 ["ip"]=1 ["edge"]=1 ["snipaste"]=1 ["git"]=1 )
 fi
 [[ ${#run_flags[@]} -eq 0 ]] && { show_help; return 0; }
 
 # Execute tasks in defined order
-for step in ssh sogou clash code remote nvidia ip edge git conda; do
+for step in ssh sogou clash code remote nvidia ip edge snipaste git conda; do
 	if [[ "${run_flags[$step]}" == "1" ]]; then
 		case "$step" in
 			ssh) enable_ssh ;;
@@ -240,6 +269,7 @@ for step in ssh sogou clash code remote nvidia ip edge git conda; do
 			nvidia) install_nvidia_driver ;;
 			ip) setup_static_ip ;;
 			edge) install_edge ;;
+			snipaste) install_snipaste ;;
 			git) install_git ;;
 			conda) install_miniconda ;;
 		esac
