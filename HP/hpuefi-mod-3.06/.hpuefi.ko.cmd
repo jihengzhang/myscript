@@ -1,1 +1,1 @@
-savedcmd_/home/tester/myscript/hpuefi-mod-3.06/hpuefi.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/tester/myscript/hpuefi-mod-3.06/hpuefi.ko /home/tester/myscript/hpuefi-mod-3.06/hpuefi.o /home/tester/myscript/hpuefi-mod-3.06/hpuefi.mod.o
+savedcmd_/home/tester/myscript/HP/hpuefi-mod-3.06/hpuefi.ko := ld -r -m elf_x86_64 -z noexecstack --build-id=sha1  -T scripts/module.lds -o /home/tester/myscript/HP/hpuefi-mod-3.06/hpuefi.ko /home/tester/myscript/HP/hpuefi-mod-3.06/hpuefi.o /home/tester/myscript/HP/hpuefi-mod-3.06/hpuefi.mod.o

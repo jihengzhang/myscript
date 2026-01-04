@@ -39,15 +39,15 @@ __used __section("__versions") = {
 	{ 0x37a0cba, "kfree" },
 	{ 0x122c3a7e, "_printk" },
 	{ 0xedc03953, "iounmap" },
-	{ 0x39d2b405, "cdev_del" },
+	{ 0xc892ac3e, "cdev_del" },
 	{ 0x6091b333, "unregister_chrdev_region" },
 	{ 0xe3ec2f2b, "alloc_chrdev_region" },
-	{ 0x14777360, "cdev_init" },
-	{ 0xaa5419b1, "cdev_add" },
+	{ 0x858c69be, "cdev_init" },
+	{ 0x6b732375, "cdev_add" },
 	{ 0x9ed12e20, "kmalloc_large" },
 	{ 0x57bc19d2, "down_write" },
 	{ 0xce807a25, "up_write" },
-	{ 0x8ef00bb, "remap_pfn_range" },
+	{ 0x21fcdd63, "remap_pfn_range" },
 	{ 0x13c49cc2, "_copy_from_user" },
 	{ 0x556422b3, "ioremap_cache" },
 	{ 0xf0fdf6cb, "__stack_chk_fail" },
@@ -58,7 +58,7 @@ __used __section("__versions") = {
 	{ 0x6bd0e573, "down_interruptible" },
 	{ 0x4c9d28b0, "phys_base" },
 	{ 0x7cd8d75e, "page_offset_base" },
-	{ 0x6ad2b3e, "module_layout" },
+	{ 0xe2fd41e5, "module_layout" },
 };
 
 MODULE_INFO(depends, "");

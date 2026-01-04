@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # Git initialization and GitHub push script
 # Usage: ./git_init.sh <github_url> [commit_message]
