@@ -2,8 +2,8 @@
 # set -euo pipefail
 
 SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://ime-sec.gtimg.com/202512041335/19db98206f31ac16036c8b0aa68bc6a2/pc/dl/gzindex/1680521603/sogoupinyin_4.2.1.145_amd64.deb}"
-CLASHCROSS_DEB_URL="${CLASHCROSS_DEB_URL:-https://github.com/ClashDotNetFramework/ClashDotNetFramework/releases/latest/download/Clash.Net.deb}"
-DEFAULT_NVIDIA_DRIVER="${DEFAULT_NVIDIA_DRIVER:-nvidia-driver-535}"
+# RTX Pro 6000 需要开源内核模块，默认使用 -open 驱动
+DEFAULT_NVIDIA_DRIVER="${DEFAULT_NVIDIA_DRIVER:-nvidia-driver-580-open}"
 
 SUDO=""
 [[ $EUID -ne 0 ]] && SUDO="sudo"
@@ -65,6 +65,17 @@ install_sogou() {
 	log "Configuring fcitx to use Sogou Pinyin as default..."
 	# Set fcitx as default input method framework
 	im-config -n fcitx 2>/dev/null || true
+
+	# Ensure fcitx env vars are loaded for GUI apps (including VS Code)
+	mkdir -p ~/.config/environment.d
+	cat > ~/.config/environment.d/fcitx.conf <<-'EOF'
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+INPUT_METHOD=fcitx
+SDL_IM_MODULE=fcitx
+GLFW_IM_MODULE=ibus
+EOF
 	
 	# Configure fcitx to use Sogou Pinyin
 	mkdir -p ~/.config/fcitx
@@ -99,6 +110,7 @@ install_vscode() {
 	
 	# Clean up conflicting VS Code repository configurations
 	$SUDO rm -f /etc/apt/sources.list.d/vscode.list
+	$SUDO rm -f /etc/apt/sources.list.d/vscode.sources
 	$SUDO rm -f /usr/share/keyrings/microsoft.gpg
 	$SUDO rm -f /etc/apt/keyrings/packages.microsoft.gpg
 	
@@ -120,12 +132,13 @@ enable_remote_desktop() {
 }
 
 install_nvidia_driver() {
-	log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER)..."
+	log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER) with open kernel modules..."
 	apt_install ubuntu-drivers-common
-	if ! $SUDO ubuntu-drivers install "$DEFAULT_NVIDIA_DRIVER"; then
-		apt_install "$DEFAULT_NVIDIA_DRIVER"
+	if ! apt_install "$DEFAULT_NVIDIA_DRIVER"; then
+		log "Falling back to ubuntu-drivers autoinstall..."
+		$SUDO ubuntu-drivers install || true
 	fi
-	log "Driver installed. Reboot recommended."
+	log "Driver installed. Reboot recommended to load open kernel modules."
 }
 
 setup_static_ip() {
@@ -207,7 +220,7 @@ Options:
   -h       Show this help
   -ssh     Enable SSH server
   -sogou   Install Sogou Pinyin (fcitx)
-  -clash   Install ClashCross (Snap)
+	-clash   Install ClashCross (Snap)
   -code    Install Visual Studio Code
   -remote  Enable XRDP remote desktop
   -nvidia  Install NVIDIA RTX Pro 6000 driver

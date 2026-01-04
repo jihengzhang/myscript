@@ -7,6 +7,10 @@ This repository contains automated scripts for setting up a fresh Ubuntu system 
 ### ubuntu_init.sh
 Comprehensive Ubuntu system initialization script with support for installing and configuring multiple services and applications.
 
+clashcross： 
+https://su.gwzxwk.com/api/v1/client/subscribe?token=0433b69986e2fa466e05349395f85fc1 
+
+
 **Usage:**
 ```bash
 ./ubuntu_init.sh [options]
@@ -150,6 +154,7 @@ Download URL may be outdated. Visit https://shurufa.sogou.com/linux to get the l
 ```bash
 SOGOU_DEB_URL="https://new-url-here" ./ubuntu_init.sh -sogou
 ```
+
 
 ## License
 
