@@ -26,11 +26,12 @@ Git Repository Initialization Script
 Usage: ./git_init.sh <github_url> [commit_message]
 
 Arguments:
-  github_url        GitHub repository URL (e.g., https://github.com/user/repo.git)
+  github_url        GitHub repository URL (HTTPS or SSH)
   commit_message    Commit message (default: "Initial commit")
 
 Examples:
   ./git_init.sh https://github.com/jihengzhang/myscript.git
+  ./git_init.sh git@github.com:jihengzhang/myscript.git
   ./git_init.sh https://github.com/jihengzhang/myscript.git "Add initial files"
 
 Features:
@@ -39,7 +40,7 @@ Features:
   - Adds all files
   - Creates initial commit
   - Configures GitHub remote
-  - Pushes to GitHub with HTTPS authentication
+  - Pushes to GitHub (supports both HTTPS and SSH)
 
 Requirements:
   - git must be installed
@@ -60,10 +61,17 @@ if [[ -z "$GITHUB_URL" ]] || [[ "$GITHUB_URL" == "-h" ]] || [[ "$GITHUB_URL" == 
 	return  0
 fi
 
-# Validate GitHub URL format
-if ! [[ "$GITHUB_URL" =~ ^https://github\.com/.+/.+\.git$ ]]; then
+# Validate GitHub URL format and detect protocol
+if [[ "$GITHUB_URL" =~ ^https://github\.com/.+/.+\.git$ ]]; then
+	USE_SSH=false
+	info "Using HTTPS protocol"
+elif [[ "$GITHUB_URL" =~ ^git@github\.com:.+/.+\.git$ ]]; then
+	USE_SSH=true
+	info "Using SSH protocol"
+else
 	error "Invalid GitHub URL format."
-	error "Expected: https://github.com/user/repo.git"
+	error "Expected: https://github.com/user/repo.git (HTTPS)"
+	error "       or git@github.com:user/repo.git (SSH)"
 	error "Got: $GITHUB_URL"
 	return  1
 fi
@@ -110,10 +118,22 @@ else
 fi
 success "Remote configured: $GITHUB_URL"
 
-# Step 6: Enable credential storage for HTTPS
-log "Enabling credential storage..."
-git config --global credential.helper store
-success "Credential helper configured"
+# Step 6: Enable credential storage for HTTPS only
+if [[ "$USE_SSH" == "false" ]]; then
+	log "Enabling credential storage for HTTPS..."
+	git config --global credential.helper store
+	success "Credential helper configured"
+else
+	log "Verifying SSH authentication..."
+	if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+		success "SSH authentication verified"
+	else
+		error "SSH authentication failed. Please set up SSH keys:"
+		error "  ssh-keygen -t ed25519 -C 'your_email@example.com'"
+		error "  cat ~/.ssh/id_ed25519.pub  # Add this to GitHub Settings > SSH Keys"
+		return 1
+	fi
+fi
 
 # Step 7: Push to GitHub
 log "Pushing to GitHub..."
