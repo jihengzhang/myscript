@@ -51,13 +51,13 @@ EOF
 # Check if git is installed
 if ! command -v git &> /dev/null; then
 	error "Git is not installed. Please install git first."
-	exit 1
+	return  1
 fi
 
 # Show help if no arguments or -h
 if [[ -z "$GITHUB_URL" ]] || [[ "$GITHUB_URL" == "-h" ]] || [[ "$GITHUB_URL" == "--help" ]]; then
 	show_help
-	exit 0
+	return  0
 fi
 
 # Validate GitHub URL format
@@ -65,7 +65,7 @@ if ! [[ "$GITHUB_URL" =~ ^https://github\.com/.+/.+\.git$ ]]; then
 	error "Invalid GitHub URL format."
 	error "Expected: https://github.com/user/repo.git"
 	error "Got: $GITHUB_URL"
-	exit 1
+	return  1
 fi
 
 log "Initializing Git repository..."
@@ -126,7 +126,7 @@ elif git push -u origin master; then
 else
 	error "Failed to push to GitHub"
 	error "Check your network connection and GitHub repository URL"
-	exit 1
+	return  1
 fi
 
 log "Git initialization complete!"

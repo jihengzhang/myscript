@@ -142,6 +142,22 @@ enable_remote_desktop() {
 }
 
 install_nvidia_driver() {
+	log "=== NVIDIA Driver Installation with Safety Checks ==="
+	
+	# Check for Secure Boot
+	if command -v mokutil &>/dev/null; then
+		local secureboot_status
+		secureboot_status=$(mokutil --sb-state 2>/dev/null || echo "unknown")
+		if echo "$secureboot_status" | grep -qi "enabled"; then
+			error "Secure Boot is ENABLED. NVIDIA proprietary drivers will NOT work!"
+			error "Please disable Secure Boot in BIOS/UEFI settings before installing NVIDIA drivers."
+			error "Or use the open kernel modules (nvidia-driver-XXX-open)"
+			read -rp "Continue anyway? (y/N): " -n 1 confirm
+			echo
+			[[ ! "$confirm" =~ ^[Yy]$ ]] && return 1
+		fi
+	fi
+	
 	log "Detecting NVIDIA GPU hardware..."
 	apt_install ubuntu-drivers-common pciutils
 	
@@ -156,6 +172,21 @@ install_nvidia_driver() {
 	
 	log "Detected GPU: $gpu_info"
 	
+	# Install kernel headers (CRITICAL - without this, drivers won't compile)
+	log "Installing kernel headers and build tools..."
+	apt_install "linux-headers-$(uname -r)" build-essential dkms
+	
+	# Blacklist nouveau driver to prevent conflicts
+	log "Blacklisting nouveau driver..."
+	$SUDO bash -c 'cat > /etc/modprobe.d/blacklist-nouveau.conf' <<-'BLACKLIST'
+	blacklist nouveau
+	options nouveau modeset=0
+	BLACKLIST
+	
+	# Update initramfs to apply nouveau blacklist
+	log "Updating initramfs (this may take a moment)..."
+	$SUDO update-initramfs -u
+	
 	# Show recommended drivers
 	log "Checking recommended drivers..."
 	$SUDO ubuntu-drivers devices
@@ -165,15 +196,53 @@ install_nvidia_driver() {
 		log "RTX Pro 6000/A6000 detected - installing open kernel driver"
 		log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER) with open kernel modules..."
 		if ! apt_install "$DEFAULT_NVIDIA_DRIVER"; then
+			error "Failed to install $DEFAULT_NVIDIA_DRIVER"
 			log "Falling back to ubuntu-drivers autoinstall..."
-			$SUDO ubuntu-drivers install || true
+			$SUDO ubuntu-drivers install || {
+				error "Driver installation failed!"
+				return 1
+			}
 		fi
 	else
 		log "Using ubuntu-drivers to install recommended driver for your GPU..."
-		$SUDO ubuntu-drivers install || true
+		$SUDO ubuntu-drivers install || {
+			error "Driver installation failed!"
+			return 1
+		}
 	fi
 	
-	log "Driver installed. Reboot recommended to load kernel modules."
+	# Verify driver was installed
+	if dpkg -l | grep -q nvidia-driver; then
+		log "✓ NVIDIA driver package installed successfully"
+	else
+		error "✗ NVIDIA driver package not found after installation"
+		return 1
+	fi
+	
+	log ""
+	log "=========================================="
+	log "NVIDIA Driver Installation Complete"
+	log "=========================================="
+	log "IMPORTANT: You MUST reboot for changes to take effect"
+	log ""
+	log "After reboot, verify driver with:"
+	log "  nvidia-smi"
+	log ""
+	log "If system fails to boot (black screen):"
+	log "1. Boot to recovery mode (hold Shift during boot)"
+	log "2. Select 'root' shell with networking"
+	log "3. Run: sudo apt purge nvidia-* && sudo apt autoremove"
+	log "4. Run: sudo rm /etc/modprobe.d/blacklist-nouveau.conf"
+	log "5. Run: sudo update-initramfs -u && reboot"
+	log "=========================================="
+	
+	read -rp "Reboot now? (y/N): " -n 1 confirm
+	echo
+	if [[ "$confirm" =~ ^[Yy]$ ]]; then
+		log "Rebooting in 5 seconds... (Ctrl+C to cancel)"
+		sleep 5
+		$SUDO reboot
+	fi
 }
 
 setup_static_ip() {
