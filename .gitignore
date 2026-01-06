@@ -1,0 +1,20 @@
+# Large binary files
+*.run
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Package directory with large files
+package/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
