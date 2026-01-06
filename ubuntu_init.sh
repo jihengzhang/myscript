@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # set -euo pipefail
 
-SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://ime-sec.gtimg.com/202512041335/19db98206f31ac16036c8b0aa68bc6a2/pc/dl/gzindex/1680521603/sogoupinyin_4.2.1.145_amd64.deb}"
+SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://ime-sec.gtimg.com/202601070319/f93b13588e5bb1fb96d8a3e07890e1f6/pc/dl/gzindex/1680521603/sogoupinyin_4.2.1.145_amd64.deb}"
 # RTX Pro 6000 需要开源内核模块，默认使用 -open 驱动
 DEFAULT_NVIDIA_DRIVER="${DEFAULT_NVIDIA_DRIVER:-nvidia-driver-580-open}"
 
@@ -51,9 +51,19 @@ install_sogou() {
 	log "Downloading Sogou Pinyin from $SOGOU_DEB_URL"
 	if ! curl -fsSL --max-redirs 100 "$SOGOU_DEB_URL" -o "$deb"; then
 		log "Failed to download Sogou Pinyin package from $SOGOU_DEB_URL"
-		log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb"
 		rm -f "$deb"
-		return 1
+		
+		# Try to find local sogou*.deb file
+		local local_deb
+		local_deb=$(find ./package -maxdepth 1 -name "sogou*.deb" -type f 2>/dev/null | head -n1)
+		if [[ -n "$local_deb" && -f "$local_deb" ]]; then
+			log "Found local Sogou package: $local_deb"
+			deb="$local_deb"
+		else
+			log "No local sogou*.deb file found in current directory"
+			log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb"
+			return 1
+		fi
 	fi
 	if ! $SUDO dpkg -i "$deb"; then
 		log "Resolving Sogou dependencies..."
@@ -132,13 +142,38 @@ enable_remote_desktop() {
 }
 
 install_nvidia_driver() {
-	log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER) with open kernel modules..."
-	apt_install ubuntu-drivers-common
-	if ! apt_install "$DEFAULT_NVIDIA_DRIVER"; then
-		log "Falling back to ubuntu-drivers autoinstall..."
+	log "Detecting NVIDIA GPU hardware..."
+	apt_install ubuntu-drivers-common pciutils
+	
+	# Detect GPU model
+	local gpu_info
+	gpu_info=$(lspci | grep -i 'vga.*nvidia' || true)
+	
+	if [[ -z "$gpu_info" ]]; then
+		error "No NVIDIA GPU detected"
+		return 1
+	fi
+	
+	log "Detected GPU: $gpu_info"
+	
+	# Show recommended drivers
+	log "Checking recommended drivers..."
+	$SUDO ubuntu-drivers devices
+	
+	# Check if this is RTX Pro 6000 or A6000 (needs -open driver)
+	if echo "$gpu_info" | grep -qi 'rtx.*6000\|a6000'; then
+		log "RTX Pro 6000/A6000 detected - installing open kernel driver"
+		log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER) with open kernel modules..."
+		if ! apt_install "$DEFAULT_NVIDIA_DRIVER"; then
+			log "Falling back to ubuntu-drivers autoinstall..."
+			$SUDO ubuntu-drivers install || true
+		fi
+	else
+		log "Using ubuntu-drivers to install recommended driver for your GPU..."
 		$SUDO ubuntu-drivers install || true
 	fi
-	log "Driver installed. Reboot recommended to load open kernel modules."
+	
+	log "Driver installed. Reboot recommended to load kernel modules."
 }
 
 setup_static_ip() {
@@ -217,19 +252,19 @@ show_help() {
 Usage: ubuntu_init.sh [options]
 
 Options:
-  -h       Show this help
-  -ssh     Enable SSH server
-  -sogou   Install Sogou Pinyin (fcitx)
-	-clash   Install ClashCross (Snap)
-  -code    Install Visual Studio Code
-  -remote  Enable XRDP remote desktop
-  -nvidia  Install NVIDIA RTX Pro 6000 driver
-  -ip      Setup static IP (10.190.63.138/22)
-	-edge    Install Microsoft Edge
-	-snipaste Install Snipaste (AppImage)
-	-git     Install Git
-  -conda   Install Miniconda with Python 3.11
-  -all     Run all tasks
+  -h        Show this help
+  -ssh      Enable SSH server
+  -sogou    Install Sogou Pinyin (fcitx)
+  -clash    Install ClashCross (Snap)
+  -code     Install Visual Studio Code
+  -remote   Enable XRDP remote desktop
+  -nvidia   Install NVIDIA RTX Pro 6000 driver
+  -ip       Setup static IP (10.190.63.138/22)
+  -edge     Install Microsoft Edge
+  -snipaste Install Snipaste (AppImage)
+  -git      Install Git
+  -conda    Install Miniconda with Python 3.11
+  -all      Run all tasks
 
 Env overrides:
   SOGOU_DEB_URL, CLASHCROSS_DEB_URL, DEFAULT_NVIDIA_DRIVER
@@ -260,7 +295,7 @@ for arg in "$@"; do
 		-git) run_flags["git"]=1; shift ;;
 		-conda) run_flags["conda"]=1; shift ;;
 		-all) run_all=true; shift ;;
-		-h) show_help; exit 0 ;;
+		-h) show_help; return 0 ;;
 		*) ;;
 	esac
 done
