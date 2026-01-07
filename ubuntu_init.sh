@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # set -euo pipefail
 
-SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://ime-sec.gtimg.com/202601070319/f93b13588e5bb1fb96d8a3e07890e1f6/pc/dl/gzindex/1680521603/sogoupinyin_4.2.1.145_amd64.deb}"
-# RTX Pro 6000 需要开源内核模块，默认使用 -open 驱动
-DEFAULT_NVIDIA_DRIVER="${DEFAULT_NVIDIA_DRIVER:-nvidia-driver-580-open}"
+SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://cdn2.shouji.sogou.com/dl/index/1702590414/sogoupinyin_4.2.1.145_amd64.deb}"
 
 SUDO=""
 [[ $EUID -ne 0 ]] && SUDO="sudo"
@@ -46,31 +44,36 @@ enable_ssh() {
 install_sogou() {
 	log "Installing Sogou Pinyin (fcitx)..."
 	apt_install curl fcitx-bin fcitx-config-gtk fcitx-table libqt5qml5 libqt5quick5 libqt5quickwidgets5 qml-module-qtquick2 libgsettings-qt1
+	
 	local deb
-	deb="$(mktemp --suffix=.deb)"
-	log "Downloading Sogou Pinyin from $SOGOU_DEB_URL"
-	if ! curl -fsSL --max-redirs 100 "$SOGOU_DEB_URL" -o "$deb"; then
-		log "Failed to download Sogou Pinyin package from $SOGOU_DEB_URL"
-		rm -f "$deb"
-		
-		# Try to find local sogou*.deb file
-		local local_deb
-		local_deb=$(find ./package -maxdepth 1 -name "sogou*.deb" -type f 2>/dev/null | head -n1)
-		if [[ -n "$local_deb" && -f "$local_deb" ]]; then
-			log "Found local Sogou package: $local_deb"
-			deb="$local_deb"
-		else
-			log "No local sogou*.deb file found in current directory"
-			log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb"
+	
+	# Try to find local sogou*.deb file first
+	local local_deb
+	local_deb=$(find . -path ./HP -prune -o -name "sogou*.deb" -type f -print 2>/dev/null | head -n1)
+	
+	if [[ -n "$local_deb" && -f "$local_deb" ]]; then
+		log "Found local Sogou package: $local_deb"
+		deb="$local_deb"
+	else
+		log "No local sogou*.deb file found, attempting download from $SOGOU_DEB_URL"
+		deb="$(mktemp --suffix=.deb)"
+		if ! curl -fsSL --max-redirs 100 "$SOGOU_DEB_URL" -o "$deb"; then
+			log "Failed to download Sogou Pinyin package"
+			rm -f "$deb"
+			log "No local sogou*.deb file found and download failed"
+			log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb and put it into folder package"
 			return 1
 		fi
 	fi
+	
 	if ! $SUDO dpkg -i "$deb"; then
 		log "Resolving Sogou dependencies..."
 		apt_install -f
 		$SUDO dpkg -i "$deb"
 	fi
-	rm -f "$deb"
+	
+	# Clean up temp file if we created one
+	[[ "$deb" == /tmp/* ]] && rm -f "$deb"
 	
 	log "Configuring fcitx to use Sogou Pinyin as default..."
 	# Set fcitx as default input method framework
@@ -141,109 +144,7 @@ enable_remote_desktop() {
 	$SUDO ufw allow 3389/tcp >/dev/null 2>&1 || true
 }
 
-install_nvidia_driver() {
-	log "=== NVIDIA Driver Installation with Safety Checks ==="
-	
-	# Check for Secure Boot
-	if command -v mokutil &>/dev/null; then
-		local secureboot_status
-		secureboot_status=$(mokutil --sb-state 2>/dev/null || echo "unknown")
-		if echo "$secureboot_status" | grep -qi "enabled"; then
-			error "Secure Boot is ENABLED. NVIDIA proprietary drivers will NOT work!"
-			error "Please disable Secure Boot in BIOS/UEFI settings before installing NVIDIA drivers."
-			error "Or use the open kernel modules (nvidia-driver-XXX-open)"
-			read -rp "Continue anyway? (y/N): " -n 1 confirm
-			echo
-			[[ ! "$confirm" =~ ^[Yy]$ ]] && return 1
-		fi
-	fi
-	
-	log "Detecting NVIDIA GPU hardware..."
-	apt_install ubuntu-drivers-common pciutils
-	
-	# Detect GPU model
-	local gpu_info
-	gpu_info=$(lspci | grep -i 'vga.*nvidia' || true)
-	
-	if [[ -z "$gpu_info" ]]; then
-		error "No NVIDIA GPU detected"
-		return 1
-	fi
-	
-	log "Detected GPU: $gpu_info"
-	
-	# Install kernel headers (CRITICAL - without this, drivers won't compile)
-	log "Installing kernel headers and build tools..."
-	apt_install "linux-headers-$(uname -r)" build-essential dkms
-	
-	# Blacklist nouveau driver to prevent conflicts
-	log "Blacklisting nouveau driver..."
-	$SUDO bash -c 'cat > /etc/modprobe.d/blacklist-nouveau.conf' <<-'BLACKLIST'
-	blacklist nouveau
-	options nouveau modeset=0
-	BLACKLIST
-	
-	# Update initramfs to apply nouveau blacklist
-	log "Updating initramfs (this may take a moment)..."
-	$SUDO update-initramfs -u
-	
-	# Show recommended drivers
-	log "Checking recommended drivers..."
-	$SUDO ubuntu-drivers devices
-	
-	# Check if this is RTX Pro 6000 or A6000 (needs -open driver)
-	if echo "$gpu_info" | grep -qi 'rtx.*6000\|a6000'; then
-		log "RTX Pro 6000/A6000 detected - installing open kernel driver"
-		log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER) with open kernel modules..."
-		if ! apt_install "$DEFAULT_NVIDIA_DRIVER"; then
-			error "Failed to install $DEFAULT_NVIDIA_DRIVER"
-			log "Falling back to ubuntu-drivers autoinstall..."
-			$SUDO ubuntu-drivers install || {
-				error "Driver installation failed!"
-				return 1
-			}
-		fi
-	else
-		log "Using ubuntu-drivers to install recommended driver for your GPU..."
-		$SUDO ubuntu-drivers install || {
-			error "Driver installation failed!"
-			return 1
-		}
-	fi
-	
-	# Verify driver was installed
-	if dpkg -l | grep -q nvidia-driver; then
-		log "✓ NVIDIA driver package installed successfully"
-	else
-		error "✗ NVIDIA driver package not found after installation"
-		return 1
-	fi
-	
-	log ""
-	log "=========================================="
-	log "NVIDIA Driver Installation Complete"
-	log "=========================================="
-	log "IMPORTANT: You MUST reboot for changes to take effect"
-	log ""
-	log "After reboot, verify driver with:"
-	log "  nvidia-smi"
-	log ""
-	log "If system fails to boot (black screen):"
-	log "1. Boot to recovery mode (hold Shift during boot)"
-	log "2. Select 'root' shell with networking"
-	log "3. Run: sudo apt purge nvidia-* && sudo apt autoremove"
-	log "4. Run: sudo rm /etc/modprobe.d/blacklist-nouveau.conf"
-	log "5. Run: sudo update-initramfs -u && reboot"
-	log "=========================================="
-	
-	read -rp "Reboot now? (y/N): " -n 1 confirm
-	echo
-	if [[ "$confirm" =~ ^[Yy]$ ]]; then
-		log "Rebooting in 5 seconds... (Ctrl+C to cancel)"
-		sleep 5
-		$SUDO reboot
-	fi
-}
+
 
 setup_static_ip() {
 	log "Configuring static IP for Wired ethernet 0..."
@@ -279,15 +180,6 @@ install_edge() {
 	log "Microsoft Edge installed."
 }
 
-install_snipaste() {
-	log "Installing Snipaste (AppImage)..."
-	apt_install wget
-	local appimage="/usr/local/bin/snipaste.AppImage"
-	$SUDO wget -q -O "$appimage" https://download.snipaste.com/archives/Snipaste-2.11.2-x86_64.AppImage
-	$SUDO chmod +x "$appimage"
-	$SUDO ln -sf "$appimage" /usr/local/bin/snipaste
-	log "Snipaste installed. Launch with: snipaste"
-}
 
 install_git() {
 	log "Installing Git..."
@@ -327,10 +219,8 @@ Options:
   -clash    Install ClashCross (Snap)
   -code     Install Visual Studio Code
   -remote   Enable XRDP remote desktop
-  -nvidia   Install NVIDIA RTX Pro 6000 driver
   -ip       Setup static IP (10.190.63.138/22)
   -edge     Install Microsoft Edge
-  -snipaste Install Snipaste (AppImage)
   -git      Install Git
   -conda    Install Miniconda with Python 3.11
   -all      Run all tasks
@@ -357,10 +247,8 @@ for arg in "$@"; do
 		-clash) run_flags["clash"]=1; shift ;;
 		-code) run_flags["code"]=1; shift ;;
 		-remote) run_flags["remote"]=1; shift ;;
-		-nvidia) run_flags["nvidia"]=1; shift ;;
 		-ip) run_flags["ip"]=1; shift ;;
 		-edge) run_flags["edge"]=1; shift ;;
-		-snipaste) run_flags["snipaste"]=1; shift ;;
 		-git) run_flags["git"]=1; shift ;;
 		-conda) run_flags["conda"]=1; shift ;;
 		-all) run_all=true; shift ;;
@@ -370,12 +258,12 @@ for arg in "$@"; do
 done
 
 if $run_all; then
-	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["nvidia"]=1 ["ip"]=1 ["edge"]=1 ["snipaste"]=1 ["git"]=1 )
+	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 )
 fi
 [[ ${#run_flags[@]} -eq 0 ]] && { show_help; return 0; }
 
 # Execute tasks in defined order
-for step in ssh sogou clash code remote nvidia ip edge snipaste git conda; do
+for step in ssh sogou clash code remote nvidia ip edge git conda; do
 	if [[ "${run_flags[$step]}" == "1" ]]; then
 		case "$step" in
 			ssh) enable_ssh ;;
@@ -383,10 +271,8 @@ for step in ssh sogou clash code remote nvidia ip edge snipaste git conda; do
 			clash) install_clashcross ;;
 			code) install_vscode ;;
 			remote) enable_remote_desktop ;;
-			nvidia) install_nvidia_driver ;;
-			ip) setup_static_ip ;;
+				ip) setup_static_ip ;;
 			edge) install_edge ;;
-			snipaste) install_snipaste ;;
 			git) install_git ;;
 			conda) install_miniconda ;;
 		esac
