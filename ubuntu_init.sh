@@ -208,6 +208,18 @@ install_miniconda() {
 	log "Restart your terminal or run: source ~/.bashrc"
 }
 
+enable_fuse2() {
+    log "Enabling FUSE2 for AppImage support..."
+    apt_install fuse libfuse2
+
+    log "Configuring FUSE2..."
+    if ! grep -q "user_allow_other" /etc/fuse.conf; then
+        echo "user_allow_other" | $SUDO tee -a /etc/fuse.conf >/dev/null
+    fi
+
+    log "FUSE2 enabled successfully."
+}
+
 show_help() {
 	cat <<'EOF'
 Usage: ubuntu_init.sh [options]
@@ -223,6 +235,7 @@ Options:
   -edge     Install Microsoft Edge
   -git      Install Git
   -conda    Install Miniconda with Python 3.11
+  -fuse2    Enable FUSE2 for AppImage support
   -all      Run all tasks
 
 Env overrides:
@@ -251,6 +264,7 @@ for arg in "$@"; do
 		-edge) run_flags["edge"]=1; shift ;;
 		-git) run_flags["git"]=1; shift ;;
 		-conda) run_flags["conda"]=1; shift ;;
+		-fuse2) run_flags["fuse2"]=1; shift ;;
 		-all) run_all=true; shift ;;
 		-h) show_help; return 0 ;;
 		*) ;;
@@ -258,12 +272,12 @@ for arg in "$@"; do
 done
 
 if $run_all; then
-	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 )
+	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 ["fuse2"]=1 )
 fi
 [[ ${#run_flags[@]} -eq 0 ]] && { show_help; return 0; }
 
 # Execute tasks in defined order
-for step in ssh sogou clash code remote nvidia ip edge git conda; do
+for step in ssh sogou clash code remote nvidia ip edge git conda fuse2; do
 	if [[ "${run_flags[$step]}" == "1" ]]; then
 		case "$step" in
 			ssh) enable_ssh ;;
@@ -275,8 +289,7 @@ for step in ssh sogou clash code remote nvidia ip edge git conda; do
 			edge) install_edge ;;
 			git) install_git ;;
 			conda) install_miniconda ;;
+			fuse2) enable_fuse2 ;;
 		esac
 	fi
 done
-# # log "Requested tasks completed."
-# # read -rp "Press Enter to exit..."
