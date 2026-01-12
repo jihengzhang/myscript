@@ -83,6 +83,109 @@ Helper script to initialize a local git repository and push to GitHub.
 - `sudo` privileges for most tasks
 - GitHub account (for git_init.sh)
 
+## Git SSH 设置指南
+
+正确配置 Git 和 SSH 访问是使用 GitHub 和其他 Git 服务的关键。以下是完整的设置步骤：
+
+### 1. 生成 SSH 密钥
+
+```bash
+# 使用 Ed25519 算法生成密钥（推荐，更安全）
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# 或使用 RSA 算法（兼容性更好）
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
+按照提示操作：
+```
+Generating public/private ed25519 key pair.
+Enter file in which to save the key (/home/username/.ssh/id_ed25519): 
+# 直接按 Enter 使用默认路径
+
+Enter passphrase (empty for no passphrase): 
+# 输入密码（可选，建议设置）
+
+Enter same passphrase again:
+# 再次确认密码
+```
+
+### 2. 验证密钥生成
+
+```bash
+# 查看 SSH 密钥文件
+ls -la ~/.ssh/
+
+# 查看公钥内容（用于添加到 GitHub）
+cat ~/.ssh/id_ed25519.pub
+```
+
+### 3. 配置全局 Git 用户信息
+
+```bash
+# 设置用户名
+git config --global user.name "Your Name"
+
+# 设置邮箱
+git config --global user.email "your_email@example.com"
+
+# 验证配置
+git config --global --list
+```
+
+### 4. 添加公钥到 GitHub
+
+1. 复制公钥内容：
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+2. 登录 GitHub，进入设置：
+   - Settings → SSH and GPG keys
+   - 点击 "New SSH key"
+   - 粘贴公钥内容并保存
+
+### 5. 测试 SSH 连接
+
+```bash
+ssh -T git@github.com
+```
+
+成功连接会显示：
+```
+Hi username! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+### 6. 使用 SSH 克隆仓库
+
+```bash
+# 使用 SSH 地址克隆
+git clone git@github.com:username/repo.git
+cd repo
+
+# 或修改已存在的仓库为 SSH 访问
+git remote set-url origin git@github.com:username/repo.git
+
+# 验证远程配置
+git remote -v
+```
+
+### 常见问题排查
+
+```bash
+# 增加 SSH 调试信息
+ssh -vT git@github.com
+
+# 如果权限问题，检查密钥文件权限
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_ed25519
+chmod 644 ~/.ssh/id_ed25519.pub
+
+# 启动 SSH agent（如果密钥有密码）
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
+
 ## Installation
 
 Clone this repository:
