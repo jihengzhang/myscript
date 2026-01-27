@@ -1,15 +1,27 @@
 #!/usr/bin/env bash
 # set -euo pipefail
 
-SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://ime-sec.gtimg.com/202512041335/19db98206f31ac16036c8b0aa68bc6a2/pc/dl/gzindex/1680521603/sogoupinyin_4.2.1.145_amd64.deb}"
-CLASHCROSS_DEB_URL="${CLASHCROSS_DEB_URL:-https://github.com/ClashDotNetFramework/ClashDotNetFramework/releases/latest/download/Clash.Net.deb}"
-DEFAULT_NVIDIA_DRIVER="${DEFAULT_NVIDIA_DRIVER:-nvidia-driver-535}"
+SOGOU_DEB_URL="${SOGOU_DEB_URL:-https://cdn2.shouji.sogou.com/dl/index/1702590414/sogoupinyin_4.2.1.145_amd64.deb}"
 
 SUDO=""
 [[ $EUID -ne 0 ]] && SUDO="sudo"
 
 APT_UPDATED=0
 log() { printf '\n[%s] %s\n' "$(date +'%H:%M:%S')" "$*"; }
+error() { printf '\n[%s] ERROR: %s\n' "$(date +'%H:%M:%S')" "$*" >&2; }
+
+check_internet() {
+	log "Checking internet connectivity..."
+	if ping -c 1 8.8.8.8 &>/dev/null || ping -c 1 1.1.1.1 &>/dev/null; then
+		log "Internet connection OK"
+		return 0
+	else
+		error "No internet connection detected"
+		error "Please check your network and try again"
+		return 1
+	fi
+}
+
 apt_update_once() {
 	[[ $APT_UPDATED -eq 1 ]] && return
 	log "Updating apt indices..."
@@ -32,25 +44,51 @@ enable_ssh() {
 install_sogou() {
 	log "Installing Sogou Pinyin (fcitx)..."
 	apt_install curl fcitx-bin fcitx-config-gtk fcitx-table libqt5qml5 libqt5quick5 libqt5quickwidgets5 qml-module-qtquick2 libgsettings-qt1
+	
 	local deb
-	deb="$(mktemp --suffix=.deb)"
-	log "Downloading Sogou Pinyin from $SOGOU_DEB_URL"
-	if ! curl -fsSL --max-redirs 100 "$SOGOU_DEB_URL" -o "$deb"; then
-		log "Failed to download Sogou Pinyin package from $SOGOU_DEB_URL"
-		log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb"
-		rm -f "$deb"
-		return 1
+	
+	# Try to find local sogou*.deb file first
+	local local_deb
+	local_deb=$(find . -path ./HP -prune -o -name "sogou*.deb" -type f -print 2>/dev/null | head -n1)
+	
+	if [[ -n "$local_deb" && -f "$local_deb" ]]; then
+		log "Found local Sogou package: $local_deb"
+		deb="$local_deb"
+	else
+		log "No local sogou*.deb file found, attempting download from $SOGOU_DEB_URL"
+		deb="$(mktemp --suffix=.deb)"
+		if ! curl -fsSL --max-redirs 100 "$SOGOU_DEB_URL" -o "$deb"; then
+			log "Failed to download Sogou Pinyin package"
+			rm -f "$deb"
+			log "No local sogou*.deb file found and download failed"
+			log "Please download manually from https://shurufa.sogou.com/linux and install with: sudo dpkg -i sogoupinyin_*_amd64.deb and put it into folder package"
+			return 1
+		fi
 	fi
+	
 	if ! $SUDO dpkg -i "$deb"; then
 		log "Resolving Sogou dependencies..."
 		apt_install -f
 		$SUDO dpkg -i "$deb"
 	fi
-	rm -f "$deb"
+	
+	# Clean up temp file if we created one
+	[[ "$deb" == /tmp/* ]] && rm -f "$deb"
 	
 	log "Configuring fcitx to use Sogou Pinyin as default..."
 	# Set fcitx as default input method framework
 	im-config -n fcitx 2>/dev/null || true
+
+	# Ensure fcitx env vars are loaded for GUI apps (including VS Code)
+	mkdir -p ~/.config/environment.d
+	cat > ~/.config/environment.d/fcitx.conf <<-'EOF'
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+INPUT_METHOD=fcitx
+SDL_IM_MODULE=fcitx
+GLFW_IM_MODULE=ibus
+EOF
 	
 	# Configure fcitx to use Sogou Pinyin
 	mkdir -p ~/.config/fcitx
@@ -85,6 +123,7 @@ install_vscode() {
 	
 	# Clean up conflicting VS Code repository configurations
 	$SUDO rm -f /etc/apt/sources.list.d/vscode.list
+	$SUDO rm -f /etc/apt/sources.list.d/vscode.sources
 	$SUDO rm -f /usr/share/keyrings/microsoft.gpg
 	$SUDO rm -f /etc/apt/keyrings/packages.microsoft.gpg
 	
@@ -105,14 +144,7 @@ enable_remote_desktop() {
 	$SUDO ufw allow 3389/tcp >/dev/null 2>&1 || true
 }
 
-install_nvidia_driver() {
-	log "Installing NVIDIA driver ($DEFAULT_NVIDIA_DRIVER)..."
-	apt_install ubuntu-drivers-common
-	if ! $SUDO ubuntu-drivers install "$DEFAULT_NVIDIA_DRIVER"; then
-		apt_install "$DEFAULT_NVIDIA_DRIVER"
-	fi
-	log "Driver installed. Reboot recommended."
-}
+
 
 setup_static_ip() {
 	log "Configuring static IP for Wired ethernet 0..."
@@ -148,6 +180,7 @@ install_edge() {
 	log "Microsoft Edge installed."
 }
 
+
 install_git() {
 	log "Installing Git..."
 	apt_install git
@@ -175,23 +208,35 @@ install_miniconda() {
 	log "Restart your terminal or run: source ~/.bashrc"
 }
 
+enable_fuse2() {
+    log "Enabling FUSE2 for AppImage support..."
+    apt_install fuse libfuse2
+
+    log "Configuring FUSE2..."
+    if ! grep -q "user_allow_other" /etc/fuse.conf; then
+        echo "user_allow_other" | $SUDO tee -a /etc/fuse.conf >/dev/null
+    fi
+
+    log "FUSE2 enabled successfully."
+}
+
 show_help() {
 	cat <<'EOF'
 Usage: ubuntu_init.sh [options]
 
 Options:
-  -h       Show this help
-  -ssh     Enable SSH server
-  -sogou   Install Sogou Pinyin (fcitx)
-  -clash   Install ClashCross (Snap)
-  -code    Install Visual Studio Code
-  -remote  Enable XRDP remote desktop
-  -nvidia  Install NVIDIA RTX Pro 6000 driver
-  -ip      Setup static IP (10.190.63.138/22)
-  -edge    Install Microsoft Edge
-  -git     Install Git
-  -conda   Install Miniconda with Python 3.11
-  -all     Run all tasks
+  -h        Show this help
+  -ssh      Enable SSH server
+  -sogou    Install Sogou Pinyin (fcitx)
+  -clash    Install ClashCross (Snap)
+  -code     Install Visual Studio Code
+  -remote   Enable XRDP remote desktop
+  -ip       Setup static IP (10.190.63.138/22)
+  -edge     Install Microsoft Edge
+  -git      Install Git
+  -conda    Install Miniconda with Python 3.11
+  -fuse2    Enable FUSE2 for AppImage support
+  -all      Run all tasks
 
 Env overrides:
   SOGOU_DEB_URL, CLASHCROSS_DEB_URL, DEFAULT_NVIDIA_DRIVER
@@ -200,6 +245,9 @@ EOF
 
 # [[ $# -eq 0 ]] && { show_help; exit 0; }  terminal will exit
 [[ $# -eq 0 ]] && { show_help ; }
+
+# Check internet connectivity
+check_internet || exit 1
 
 declare -A run_flags=()
 run_all=false
@@ -212,24 +260,24 @@ for arg in "$@"; do
 		-clash) run_flags["clash"]=1; shift ;;
 		-code) run_flags["code"]=1; shift ;;
 		-remote) run_flags["remote"]=1; shift ;;
-		-nvidia) run_flags["nvidia"]=1; shift ;;
 		-ip) run_flags["ip"]=1; shift ;;
 		-edge) run_flags["edge"]=1; shift ;;
 		-git) run_flags["git"]=1; shift ;;
 		-conda) run_flags["conda"]=1; shift ;;
+		-fuse2) run_flags["fuse2"]=1; shift ;;
 		-all) run_all=true; shift ;;
-		-h) show_help; exit 0 ;;
+		-h) show_help; return 0 ;;
 		*) ;;
 	esac
 done
 
 if $run_all; then
-	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["nvidia"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 )
+	run_flags=( ["ssh"]=1 ["sogou"]=1 ["clash"]=1 ["code"]=1 ["remote"]=1 ["ip"]=1 ["edge"]=1 ["git"]=1 ["fuse2"]=1 )
 fi
 [[ ${#run_flags[@]} -eq 0 ]] && { show_help; return 0; }
 
 # Execute tasks in defined order
-for step in ssh sogou clash code remote nvidia ip edge git conda; do
+for step in ssh sogou clash code remote nvidia ip edge git conda fuse2; do
 	if [[ "${run_flags[$step]}" == "1" ]]; then
 		case "$step" in
 			ssh) enable_ssh ;;
@@ -237,13 +285,11 @@ for step in ssh sogou clash code remote nvidia ip edge git conda; do
 			clash) install_clashcross ;;
 			code) install_vscode ;;
 			remote) enable_remote_desktop ;;
-			nvidia) install_nvidia_driver ;;
-			ip) setup_static_ip ;;
+				ip) setup_static_ip ;;
 			edge) install_edge ;;
 			git) install_git ;;
 			conda) install_miniconda ;;
+			fuse2) enable_fuse2 ;;
 		esac
 	fi
 done
-# # log "Requested tasks completed."
-# # read -rp "Press Enter to exit..."
