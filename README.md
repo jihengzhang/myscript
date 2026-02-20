@@ -35,7 +35,22 @@ https://su.gwzxwk.com/api/v1/client/subscribe?token=0433b69986e2fa466e05349395f8
 
 # All tasks
 ./ubuntu_init.sh -all
-```
+```git
+
+**ARM 64**
+
+use clash verge to replace clashcross
+ - https://github.com/zzzgydi/clash-verge/releases/download/v1.3.8/clash-verge_1.3.8_amd64.AppImage
+
+use ARM64 version sogou
+https://shurufa.sogou.com/linux/guide 
+
+https://ime-sec.gtimg.com/202602210541/50992d12d3d1ce0eb8ef342ae03b002f/pc/dl/gzindex/1680521473/sogoupinyin_4.2.1.145_arm64.deb 
+ - 
+
+***clash***
+
+https://github.com/clash-verge-rev/clash-verge-rev/releases 
 
 **Features:**
 - SSH server setup
