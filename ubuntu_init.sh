@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 # set -euo pipefail
 
+"""
+Ubuntu Initialization Script
+Add multi-architecture support and improve installation reliability
+2026-02-20
+Major changes:
+- Add hardware detection (arch, device type, GPU, memory)
+- Support ARM64/aarch64 for Sogou, Clash, Miniconda, Edge, Chrome
+- Replace ClashCross with Clash Verge Rev (better ARM64 support)
+- Dynamically fetch latest Sogou download URL from official site
+- Add -hwinfo flag to display system information
+- Add -chrome option (Chrome on x86_64, Chromium on ARM64)
+- Improve Miniconda with arch detection and conda-forge config
+- Better error messages and user guidance for failed installations
+- Update README with recent changes summary and Clash Verge URLs
+
+Tested on: Ubuntu x86_64 and ARM64 (Jetson)
+"""
+
 SUDO=""
 [[ $EUID -ne 0 ]] && SUDO="sudo"
 
