@@ -2,6 +2,19 @@
 
 This repository contains automated scripts for setting up a fresh Ubuntu system with essential tools and configurations.
 
+## Recent Updates (Feb 2026)
+
+**Multi-Architecture Support:** The script now automatically detects hardware and supports both x86_64 and ARM64 architectures (including Jetson devices).
+
+**Key Improvements:**
+- **Hardware Detection**: Auto-detects CPU architecture, device type, GPU, OS version, and memory
+- **Smart Sogou Installation**: Dynamically fetches latest download URL for correct architecture
+- **Clash Verge**: Replaced ClashCross with Clash Verge Rev (better ARM64 support)
+- **Chrome Support**: Added `-chrome` option (installs Chromium on ARM64 as alternative)
+- **Enhanced Miniconda**: Auto-detects architecture and uses latest Python version
+- **Better Error Handling**: Improved user guidance when installations fail
+- **New `-hwinfo` flag**: Display system hardware information
+
 ## Files
 
 ### ubuntu_init.sh
@@ -41,6 +54,22 @@ https://su.gwzxwk.com/api/v1/client/subscribe?token=0433b69986e2fa466e05349395f8
 
 use clash verge to replace clashcross
  - https://github.com/zzzgydi/clash-verge/releases/download/v1.3.8/clash-verge_1.3.8_amd64.AppImage
+tester@jetson:~/AI_Tools/myscript$  curl -s https://api.github.com/repos/clash-verge-rev/clash-verge-rev/releases/latest | grep "browser_download_url" | cut -d'"' -f4 | head -15
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge-2.4.6-1.aarch64.rpm
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge-2.4.6-1.armhfp.rpm
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge-2.4.6-1.x86_64.rpm
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge-2.4.6-1.x86_64.rpm.sig
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_aarch64.dmg
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_amd64.deb
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_amd64.deb.sig
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_arm64-setup.exe
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_arm64-setup.exe.sig
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_arm64.deb
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_arm64_fixed_webview2-setup.exe
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_arm64_fixed_webview2-setup.exe.sig
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_armhf.deb
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_x64-setup.exe
+https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.4.6/Clash.Verge_2.4.6_x64-setup.exe.sig
 
 use ARM64 version sogou
 https://shurufa.sogou.com/linux/guide 
