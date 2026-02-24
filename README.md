@@ -20,7 +20,7 @@ This repository contains automated scripts for setting up a fresh Ubuntu system 
 ### ubuntu_init.sh
 Comprehensive Ubuntu system initialization script with support for installing and configuring multiple services and applications.
 
-clashcross： 
+clashcross： include person subscripe info:
 https://su.gwzxwk.com/api/v1/client/subscribe?token=0433b69986e2fa466e05349395f85fc1 
 
 

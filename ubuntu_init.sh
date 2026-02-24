@@ -437,6 +437,22 @@ install_git() {
 	log "Installing Git..."
 	apt_install git
 	log "Git installed. Version: $(git --version)"
+
+	# Configure git proxy if system proxy is detected
+	local proxy_host="127.0.0.1"
+	local proxy_port="7897"
+	local proxy_url="http://${proxy_host}:${proxy_port}"
+
+	# Check if proxy port is listening
+	if ss -tlnp 2>/dev/null | grep -q ":${proxy_port}" || \
+	   nc -z -w1 "${proxy_host}" "${proxy_port}" 2>/dev/null; then
+		log "System proxy detected at ${proxy_url}, configuring git..."
+		git config --global http.proxy  "${proxy_url}"
+		git config --global https.proxy "${proxy_url}"
+		log "Git proxy set: http.proxy / https.proxy -> ${proxy_url}"
+	else
+		log "Proxy port ${proxy_port} not active; skipping git proxy configuration."
+	fi
 }
 
 install_chrome() {
