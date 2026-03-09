@@ -160,10 +160,14 @@ if ($listening) {
     # Disable proxy
     Set-ItemProperty -Path $regPath -Name ProxyEnable -Value 0
     
-    # Remove proxy server setting only; keep AutoConfigURL unchanged.
-    Remove-ItemProperty -Path $regPath -Name ProxyServer -ErrorAction SilentlyContinue
-    
-    Write-Host "[OK] Proxy disabled (direct connection)" -ForegroundColor Green
+    if ($Clear) {
+        # Clear mode: remove manual proxy address; keep AutoConfigURL unchanged.
+        Remove-ItemProperty -Path $regPath -Name ProxyServer -ErrorAction SilentlyContinue
+        Write-Host "[OK] Proxy disabled and ProxyServer cleared" -ForegroundColor Green
+    } else {
+        # Auto mode: keep ProxyServer value for quick re-enable next time.
+        Write-Host "[OK] Proxy disabled (ProxyServer kept)" -ForegroundColor Green
+    }
 }
 
 # Refresh Internet settings
